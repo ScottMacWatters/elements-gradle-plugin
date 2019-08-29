@@ -20,83 +20,100 @@ import static net.e6tech.elements.gradle.ClosureUtils.s;
 
 public class LaunchTasksManager {
 
-
-    private static class LaunchTask {
-        protected final LaunchElementsTask launchElements;
-        protected final CreateElementsStartScriptTask startScripts;
-
-        private LaunchTask(LaunchElementsTask launchElements, CreateElementsStartScriptTask startScripts) {
-            this.launchElements = launchElements;
-            this.startScripts = startScripts;
-        }
-    }
+    private Project project;
+    private Map<String, LaunchElementsTask> existingDev = new HashMap<>();
+    private Map<String, CreateElementsStartScriptTask> existingDist = new HashMap<>();
 
     public void applyLaunchExtension(Project project) {
+        this.project = project;
+
         CreateStartScripts startScripts = (CreateStartScripts) project.getTasks().getByName("startScripts");
         startScripts.setEnabled(false);
 
-
-        Map<String, LaunchTask> tasks = new HashMap<>();
-        project.getExtensions().add("elementsLaunch", new ElementsLaunchExtension(ext ->
-                manageLaunchTasks(tasks, project, ext)));
-
-        manageLaunchTasks(tasks, project, project.getExtensions().getByType(ElementsLaunchExtension.class));
+        ElementsLaunchExtension extension = new ElementsLaunchExtension(this::manageLaunchTasks);
+        manageLaunchTasks(extension);
+        project.getExtensions().add("elementsLaunch", extension);
     }
 
-    private void manageLaunchTasks(Map<String, LaunchTask> existing, Project project, ElementsLaunchExtension extension) {
-
-        Set<String> shouldExist = getLaunchScripts(project, extension);
-
-        shouldExist.forEach(name -> existing.computeIfAbsent(name, computeLaunchTask(project)));
-
-        List<String> jvmArgs = extension.getJvmArgs().stream().map(ClosureUtils::s)
+    private List<String> computeJvmArgs(ElementsLaunchExtension extension) {
+        return extension.getJvmArgs().stream().map(ClosureUtils::s)
                 .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
+    }
 
-        existing.forEach((name, task) -> {
-            task.launchElements.setClasspath(extension.getClassPath());
-            task.launchElements.setGroup("launch elements");
-            task.launchElements.setAdditionalArgs(extension.getLaunchArgs());
-            task.launchElements.setHomeDir(project.getProjectDir());
-            task.launchElements.setLaunchScriptBase(extension.getLaunchScriptBase());
-            task.launchElements.setJvmArgs(jvmArgs);
+    private void manageDevTasks(ElementsLaunchExtension extension) {
+        Set<String> shouldExist = getLaunchScripts(extension.getDev());
 
-            task.startScripts.setAdditionalArgs(extension.getLaunchArgs());
-            task.startScripts.populateMainClassname();
-            task.startScripts.setOutputDir(new File(project.getBuildDir(), "scripts"));
-            task.startScripts.setLaunchScriptBase(extension.getLaunchScriptBase());
-            task.startScripts.setDefaultJvmOpts(jvmArgs);
+        String prefix = s(extension.getDev().getPrefix()).orElse("run");
 
-            task.startScripts.setClasspath(project.files("$APP_HOME/*"));
-        });
+        Map<String,String> tasksByName = shouldExist.stream()
+                .collect(Collectors.toMap(name -> derriveTaskName(prefix, name), Function.identity(), (a,b) -> b));
 
 
-        Task processResources = project.getTasks().getByName("processResources");
-        existing.forEach((name, task) -> {
-            if (shouldExist.contains(name)) {
-                project.getTasks().add(task.launchElements);
-                project.getTasks().add(task.startScripts);
-                processResources.dependsOn(task.startScripts);
-                task.startScripts.setEnabled(true);
+        tasksByName.forEach((name, launchName) -> existingDev.computeIfAbsent(name, n -> computeDev(n, launchName)));
+
+        List<String> jvmArgs = computeJvmArgs(extension);
+
+        existingDev.forEach((name, task) -> {
+            task.setClasspath(extension.getClassPath());
+            task.setGroup("launch elements");
+            task.setAdditionalArgs(extension.getLaunchArgs());
+            task.setHomeDir(project.getProjectDir());
+            task.setLaunchScriptBase(extension.getDev().getLaunchScriptBase());
+            task.setJvmArgs(jvmArgs);
+
+            if (tasksByName.containsKey(name)) {
+                project.getTasks().add(task);
             } else {
-                project.getTasks().remove(task.launchElements);
-                project.getTasks().remove(task.startScripts);
-                task.startScripts.setEnabled(false);
+                project.getTasks().remove(task);
             }
         });
-
     }
 
-    private Function<String, LaunchTask> computeLaunchTask(Project project) {
-        return name -> {
-            String launchName = derriveTaskName("run", name);
-            String scriptName = derriveTaskName("start", name);
-            LaunchElementsTask launchTask = project.getTasks().create(launchName, LaunchElementsTask.class);
-            launchTask.setLaunchScript(name);
-            CreateElementsStartScriptTask startScripts = project.getTasks().create(scriptName, CreateElementsStartScriptTask.class);
-            startScripts.setApplicationName(launchName);
-            startScripts.setLaunchScript(name);
-            return new LaunchTask(launchTask, startScripts);
-        };
+    private void manageDistTasks(ElementsLaunchExtension extension) {
+        Set<String> shouldExist = getLaunchScripts(extension.getDist());
+
+        shouldExist.forEach(name -> existingDist.computeIfAbsent(name, this::computeDist));
+
+        List<String> jvmArgs = computeJvmArgs(extension);
+
+        Task processResources = project.getTasks().getByName("processResources");
+        existingDist.forEach((name, task) -> {
+            task.setAdditionalArgs(extension.getLaunchArgs());
+            task.populateMainClassname();
+            task.setOutputDir(new File(project.getBuildDir(), "scripts"));
+            task.setLaunchScriptBase(extension.getDist().getLaunchScriptBase());
+            task.setDefaultJvmOpts(jvmArgs);
+            task.setClasspath(project.files("$APP_HOME/*"));
+            String launchName = derriveTaskName(s(extension.getDist().getPrefix()).orElse("run"), name);
+            task.setApplicationName(launchName);
+
+            if (shouldExist.contains(name)) {
+                project.getTasks().add(task);
+                processResources.dependsOn(task);
+                task.setEnabled(true);
+            } else {
+                project.getTasks().remove(task);
+                task.setEnabled(false);
+            }
+        });
+    }
+
+    private void manageLaunchTasks(ElementsLaunchExtension extension) {
+        manageDevTasks(extension);
+        manageDistTasks(extension);
+    }
+
+    private LaunchElementsTask computeDev(String taskName, String launchScript) {
+        LaunchElementsTask launchTask = project.getTasks().create(taskName, LaunchElementsTask.class);
+        launchTask.setLaunchScript(launchScript);
+        return launchTask;
+    }
+
+    private CreateElementsStartScriptTask computeDist(String name) {
+        String scriptName = derriveTaskName("start", name);
+        CreateElementsStartScriptTask startScripts = project.getTasks().create(scriptName, CreateElementsStartScriptTask.class);
+        startScripts.setLaunchScript(name);
+        return startScripts;
     }
 
 
@@ -104,7 +121,7 @@ public class LaunchTasksManager {
         StringBuilder builder = new StringBuilder(prefix);
 
 
-        boolean capitalizeNext = true;
+        boolean capitalizeNext = !prefix.isEmpty();
         for (int i = 0; i < launchScriptName.length(); i++) {
             if (launchScriptName.substring(i).equals("groovy")) break;
 
@@ -128,7 +145,7 @@ public class LaunchTasksManager {
     }
 
 
-    private Set<String> getLaunchScripts(Project project, ElementsLaunchExtension extension) {
+    private Set<String> getLaunchScripts(LaunchScriptFilter extension) {
         String provisionDir = project.getProjectDir().getAbsolutePath() + "/" + s(extension.getLaunchScriptBase()).orElse("") + "/";
         Path provisionDirPath = Paths.get(provisionDir);
 
@@ -136,12 +153,14 @@ public class LaunchTasksManager {
 
         Set<String> output = new HashSet<>();
 
-        List<String> include = convertClosureList(extension.getIncludeLaunchRegex());
+        List<String> include = convertClosureList(extension.getIncludeRegex());
 
-        List<String> exclude = convertClosureList(extension.getExcludeLaunchRegex());
+        List<String> exclude = convertClosureList(extension.getExcludeRegex());
 
         recursiveScanSubDirs(provisionDirPath, filePath -> {
             String fullPath = filePath.toString();
+            if (!fullPath.endsWith(".groovy")) return;
+
             String specificPath = fileNameNoExtension(fullPath.substring(provisionDir.length()));
 
             if (exclude != null && !exclude.isEmpty()) {

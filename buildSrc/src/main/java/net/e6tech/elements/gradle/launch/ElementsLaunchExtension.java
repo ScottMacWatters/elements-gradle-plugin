@@ -1,8 +1,12 @@
 package net.e6tech.elements.gradle.launch;
 
+import groovy.lang.Closure;
 import org.gradle.api.file.FileCollection;
+import org.gradle.util.ClosureBackedAction;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class ElementsLaunchExtension {
@@ -11,11 +15,9 @@ public class ElementsLaunchExtension {
 
     // For individual launch tasks
     private List<Object> launchArgs = new ArrayList<>();
-    private Object launchScriptBase = "conf/provisioning";
 
-    // To include/exclude directories or scripts from being generated as new tasks
-    private List<Object> includeLaunchRegex = new ArrayList<>();
-    private List<Object> excludeLaunchRegex = new ArrayList<>();
+    private final LaunchScriptFilter dev;
+    private final LaunchScriptFilter dist;
 
     private List<Object> jvmArgs = new ArrayList<>();
 
@@ -23,6 +25,8 @@ public class ElementsLaunchExtension {
 
     public ElementsLaunchExtension(Consumer<ElementsLaunchExtension> updated) {
         this.updated = updated;
+        dev = new LaunchScriptFilter(updated, this);
+        dist = new LaunchScriptFilter(updated, this);
     }
 
     private void onUpdate() {
@@ -44,19 +48,12 @@ public class ElementsLaunchExtension {
         onUpdate();
     }
 
-    public void launchScriptBase(Object launchScriptBase) {
-        this.launchScriptBase = launchScriptBase;
-        onUpdate();
+    public void dev(Closure devFilter) {
+        ClosureBackedAction.of(devFilter).execute(dev);
     }
 
-    public void includeLaunchRegex(Object... includeLaunchRegex) {
-        this.includeLaunchRegex.addAll(Arrays.asList(includeLaunchRegex));
-        onUpdate();
-    }
-
-    public void excludeLaunchRegex(Object... excludeLaunchRegex) {
-        this.excludeLaunchRegex.addAll(Arrays.asList(excludeLaunchRegex));
-        onUpdate();
+    public void dist(Closure distFilter) {
+        ClosureBackedAction.of(distFilter).execute(dist);
     }
 
     public FileCollection getClassPath() {
@@ -67,19 +64,15 @@ public class ElementsLaunchExtension {
         return launchArgs;
     }
 
-    public Object getLaunchScriptBase() {
-        return launchScriptBase;
-    }
-
-    public List<Object> getIncludeLaunchRegex() {
-        return includeLaunchRegex;
-    }
-
-    public List<Object> getExcludeLaunchRegex() {
-        return excludeLaunchRegex;
-    }
-
     public List<Object> getJvmArgs() {
         return jvmArgs;
+    }
+
+    public LaunchScriptFilter getDev() {
+        return dev;
+    }
+
+    public LaunchScriptFilter getDist() {
+        return dist;
     }
 }

@@ -14,7 +14,18 @@ dependencies {
 }
 
 elementsLaunch {
-    classPath sourceSets.main.runtimeClasspath
-    includeLaunchRegex ".*/dev/.*"
+    dev {
+        launchScriptBase "conf/provisioning/sm/dev"
+        prefix "run"
+    }
+
+    dist {
+        launchScriptBase "conf/provisioning/sm/dev"
+        prefix ""
+        includeRegex "main"
+    }
+
+    classPath sourceSets.main.runtimeClasspath    
     jvmArgs "-server", "-Xms256m", "-Xmx4096m", "-XX:NewRatio=3", "-XX:MaxGCPauseMillis=1000", "-XX:+HeapDumpOnOutOfMemoryError"
+
 }
