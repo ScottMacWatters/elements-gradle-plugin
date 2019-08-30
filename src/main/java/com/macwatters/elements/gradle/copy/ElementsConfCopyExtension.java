@@ -1,11 +1,12 @@
-package net.e6tech.elements.gradle.copy;
+package com.macwatters.elements.gradle.copy;
 
 import groovy.lang.Closure;
 import org.gradle.api.Action;
 import org.gradle.api.tasks.Copy;
-import org.gradle.util.ClosureBackedAction;
 
 import java.util.function.Consumer;
+
+import static com.macwatters.elements.gradle.ClosureUtils.closureBackedAction;
 
 public class ElementsConfCopyExtension {
 
@@ -18,10 +19,10 @@ public class ElementsConfCopyExtension {
     }
 
     public void copyConf(Closure copyConf) {
-        onCopyConf.accept(ClosureBackedAction.of(copyConf));
+        onCopyConf.accept(closureBackedAction(copyConf));
     }
 
     public void alsoCopy(Closure alsoCopy) {
-        onAlsoCopy.accept(ClosureBackedAction.of(alsoCopy));
+        onAlsoCopy.accept(closureBackedAction(alsoCopy));
     }
 }

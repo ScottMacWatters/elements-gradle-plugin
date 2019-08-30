@@ -1,4 +1,4 @@
-package net.e6tech.elements.gradle.copy;
+package com.macwatters.elements.gradle.copy;
 
 import groovy.lang.Closure;
 import org.gradle.api.Action;
@@ -6,9 +6,9 @@ import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.file.CopySpec;
 import org.gradle.api.internal.project.DefaultProject;
+import org.gradle.api.plugins.ApplicationPlugin;
 import org.gradle.api.tasks.AbstractCopyTask;
 import org.gradle.api.tasks.Copy;
-import org.gradle.api.tasks.Sync;
 
 import java.util.function.Supplier;
 
@@ -27,16 +27,19 @@ public class CopyTaskManager {
     private void installDistCopyConf(Project project) {
         this.project = project;
 
-        // Copy the conf directory
-        copyConfFromBuild("installDist", copySpec -> copySpec.into("conf"));
-        copyConfFromBuild("distTar", copyIntoDistDir());
-        copyConfFromBuild("distZip", copyIntoDistDir());
+        // This section of code is only relevant if the user is using the Application plugin
+        project.getPlugins().withType(ApplicationPlugin.class, app -> {
+            // Copy the conf directory
+            copyConfFromBuild("installDist", copySpec -> copySpec.into("conf"));
+            copyConfFromBuild("distTar", copyIntoDistDir());
+            copyConfFromBuild("distZip", copyIntoDistDir());
 
-        project.getExtensions().add("elementsDist", new ElementsConfCopyExtension(this::setupCopyConf, this::addNewCopyStep));
+            project.getExtensions().add("elementsDist", new ElementsConfCopyExtension(this::setupCopyConf, this::addNewCopyStep));
 
-        setupCopyConf(copy -> {
-            copy.from("conf");
-            copy.into(project.getBuildDir() + "/conf");
+            setupCopyConf(copy -> {
+                copy.from("conf");
+                copy.into(project.getBuildDir() + "/conf");
+            });
         });
 
     }

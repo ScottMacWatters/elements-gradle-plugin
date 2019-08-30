@@ -1,13 +1,11 @@
-package net.e6tech.elements.gradle.launch;
+package com.macwatters.elements.gradle.launch;
 
-import net.e6tech.elements.gradle.ClosureUtils;
+import com.macwatters.elements.gradle.ClosureUtils;
 import org.gradle.api.tasks.application.CreateStartScripts;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static net.e6tech.elements.gradle.launch.LaunchElementsTask.format;
 
 public class CreateElementsStartScriptTask extends CreateStartScripts {
 
@@ -29,9 +27,9 @@ public class CreateElementsStartScriptTask extends CreateStartScripts {
 
     private static String formatMainClassWithArgs(List<Object> args, Object launchScriptBase, Object launchScript) {
         StringBuilder builder = new StringBuilder("net.e6tech.elements.common.launch.Launch").append(NL);
-        builder.append(format("home", "\"$APP_HOME\"")).append(NL);
+        builder.append(LaunchElementsTask.format("home", "\"$APP_HOME\"")).append(NL);
 
-        builder.append(format("launch", "\"", "$APP_HOME", "/", launchScriptBase, "/", launchScript, "\"")).append(NL);
+        builder.append(LaunchElementsTask.format("launch", "\"", "$APP_HOME", "/", launchScriptBase, "/", launchScript, "\"")).append(NL);
 
         args.stream().map(ClosureUtils::s).filter(Optional::isPresent).forEach(arg -> builder.append(arg).append(NL));
 

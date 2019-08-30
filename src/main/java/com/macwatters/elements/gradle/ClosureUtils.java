@@ -1,6 +1,7 @@
-package net.e6tech.elements.gradle;
+package com.macwatters.elements.gradle;
 
 import groovy.lang.Closure;
+import org.gradle.api.Action;
 
 import java.util.Optional;
 
@@ -26,6 +27,19 @@ public class ClosureUtils {
         } else {
             return Optional.empty();
         }
+    }
+
+    public static <T> Action<T> closureBackedAction(Closure closure) {
+        Closure copy = (Closure)closure.clone();
+        copy.setResolveStrategy(Closure.DELEGATE_FIRST);
+        return delegate -> {
+            copy.setDelegate(delegate);
+            if (copy.getMaximumNumberOfParameters() == 0) {
+                copy.call();
+            } else {
+                copy.call(delegate);
+            }
+        };
     }
 
     private ClosureUtils() {

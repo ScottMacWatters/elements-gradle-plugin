@@ -1,11 +1,11 @@
-package net.e6tech.elements.gradle.launch;
+package com.macwatters.elements.gradle.launch;
 
 import org.gradle.api.tasks.JavaExec;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static net.e6tech.elements.gradle.ClosureUtils.s;
+import static com.macwatters.elements.gradle.ClosureUtils.s;
 
 public class LaunchElementsTask extends JavaExec {
 

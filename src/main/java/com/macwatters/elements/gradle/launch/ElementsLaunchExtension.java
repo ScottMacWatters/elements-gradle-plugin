@@ -1,8 +1,8 @@
-package net.e6tech.elements.gradle.launch;
+package com.macwatters.elements.gradle.launch;
 
+import com.macwatters.elements.gradle.ClosureUtils;
 import groovy.lang.Closure;
 import org.gradle.api.file.FileCollection;
-import org.gradle.util.ClosureBackedAction;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,11 +49,11 @@ public class ElementsLaunchExtension {
     }
 
     public void dev(Closure devFilter) {
-        ClosureBackedAction.of(devFilter).execute(dev);
+        ClosureUtils.closureBackedAction(devFilter).execute(dev);
     }
 
     public void dist(Closure distFilter) {
-        ClosureBackedAction.of(distFilter).execute(dist);
+        ClosureUtils.closureBackedAction(distFilter).execute(dist);
     }
 
     public FileCollection getClassPath() {

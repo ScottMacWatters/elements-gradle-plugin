@@ -1,31 +1,30 @@
-apply plugin: 'java'
-apply plugin: 'application'
-apply plugin: 'elements-plugin'
 
-ext.elementsVersion = '2.5.8'
-
-repositories {
-    mavenCentral()
+plugins {
+    id 'java'
+    id 'java-gradle-plugin'
+    id 'com.gradle.plugin-publish' version '0.10.0'
 }
 
-dependencies {
-    compile "net.e6tech:elements-common:${elementsVersion}"
-    compile "net.e6tech:elements-web:${elementsVersion}"
+sourceCompatibility = 1.8
+
+group = 'com.macwatters.elements.gradle'
+version = '0.1'
+
+gradlePlugin {
+    plugins {
+        elementsPlugin {
+            id = 'com.macwatters.elements-gradle'
+            displayName = 'Elements Framework Plugin'
+            description = 'Elements is a framework for Java applications that allows configuration of Atoms (java classes, or groups of classes) using Groovy. See more at https://github.com/futehkao/elements. ' +
+                    'This plugin adds gradle tasks to run various provisions as well as launch scripts to applications built using the application plugin. It also facilitates copying groovy files from the conf directory ' +
+                    'into various locations, simplifying a lot of the common elements build tasks into an easy to read DSL.'
+            implementationClass = 'com.macwatters.elements.gradle.ElementsPlugin'
+        }
+    }
 }
 
-elementsLaunch {
-    dev {
-        launchScriptBase "conf/provisioning/sm/dev"
-        prefix "run"
-    }
-
-    dist {
-        launchScriptBase "conf/provisioning/sm/dev"
-        prefix ""
-        includeRegex "main"
-    }
-
-    classPath sourceSets.main.runtimeClasspath    
-    jvmArgs "-server", "-Xms256m", "-Xmx4096m", "-XX:NewRatio=3", "-XX:MaxGCPauseMillis=1000", "-XX:+HeapDumpOnOutOfMemoryError"
-
+pluginBundle {
+    website = 'https://github.com/ScottMacWatters/elements-gradle-plugin'
+    vcsUrl = 'https://github.com/ScottMacWatters/elements-gradle-plugin'
+    tags = ['elements', 'java', 'framework', 'groovy', 'atoms']
 }

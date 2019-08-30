@@ -1,1 +1,0 @@
-bootstrap.after(['atoms': "$__dir/../../atoms/**"])
