@@ -31,10 +31,6 @@ elementsLaunch {
     // This is the default:
     classPath sourceSets.main.runtimeClasspath
     
-    // Launch args can sometimes be provided here. 
-    // Launch args are used for gradle and start scripts
-    launchArgs "something=something", "asdf=1234"
-    
     // This configures what provisions are turned into Gradle tasks
     // that can be used to start the system in dev
     dev {
@@ -49,12 +45,16 @@ elementsLaunch {
         
         // include and exclude regex strings can be used to exclude and include paths and 
         // directories from being used gradle task generation
-        // By default, there are no include/exclude regex options
-        // The below settings would only include scripts within a dev folder
-        // and would explicitly exclude any "environment" file, as these are typically
-        // used to configure an environment and are not startable. 
-        includeRegex ".*/dev/.*"
-        excludeRegex "environment"
+        // By default, the following options are provided, but they are overridden the first time 
+        // anything is set.
+        // By default, these will publish gradle tasks for any task in /dev or /prod.
+        includeRegex ".*/etc/.*"
+        excludeRegex ".*/(dev|prod)/.*"
+        
+        // Launch args can sometimes be provided here. 
+        // Launch args are used for gradle and start scripts
+        // By default, none are provided
+        launchArgs "something=something", "asdf=1234"
     }
     
     // This configures what provisions are turned into start scripts 
@@ -75,6 +75,10 @@ elementsLaunch {
         // but it is included for completeness. 
         includeRegex "core"
         excludeRegex "asdf"
+        
+        // Same as the above dev.launchArgs section
+        launchArgs "something=differentSomething", "asdf=6543"
+           
     }
     
     // jvmArgs can be configured for dev tasks and start scripts using jvmArgs

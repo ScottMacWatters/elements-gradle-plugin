@@ -13,8 +13,6 @@ public class ElementsLaunchExtension {
 
     private FileCollection classPath;
 
-    // For individual launch tasks
-    private List<Object> launchArgs = new ArrayList<>();
 
     private final LaunchScriptFilter dev;
     private final LaunchScriptFilter dist;
@@ -43,10 +41,7 @@ public class ElementsLaunchExtension {
         onUpdate();
     }
 
-    public void launchArgs(Object... launchArgs) {
-        this.launchArgs.addAll(Arrays.asList(launchArgs));
-        onUpdate();
-    }
+
 
     public void dev(Closure devFilter) {
         ClosureUtils.closureBackedAction(devFilter).execute(dev);
@@ -60,9 +55,6 @@ public class ElementsLaunchExtension {
         return classPath;
     }
 
-    public List<Object> getLaunchArgs() {
-        return launchArgs;
-    }
 
     public List<Object> getJvmArgs() {
         return jvmArgs;

@@ -67,7 +67,7 @@ public class LaunchTasksManager {
         existingDev.forEach((name, task) -> {
             task.setClasspath(classPath);
             task.setGroup("launch elements");
-            task.setAdditionalArgs(extension.getLaunchArgs());
+            task.setAdditionalArgs(extension.getDev().getLaunchArgs());
             task.setHomeDir(project.getProjectDir());
             task.setLaunchScriptBase(extension.getDev().getLaunchScriptBase());
             task.setJvmArgs(jvmArgs);
@@ -115,7 +115,7 @@ public class LaunchTasksManager {
 
             Task processResources = project.getTasks().getByName("processResources");
             existingDist.forEach((name, task) -> {
-                task.setAdditionalArgs(extension.getLaunchArgs());
+                task.setAdditionalArgs(extension.getDist().getLaunchArgs());
                 task.setLaunchScriptBase(extension.getDist().getLaunchScriptBase());
                 task.populateMainClassname();
                 task.setOutputDir(new File(project.getBuildDir(), "scripts"));
