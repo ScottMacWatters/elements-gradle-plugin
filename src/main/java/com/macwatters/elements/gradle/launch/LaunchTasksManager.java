@@ -62,7 +62,7 @@ public class LaunchTasksManager {
 
         List<String> jvmArgs = computeJvmArgs(extension);
 
-        FileCollection classPath = extension.getClassPath() == null ? computeJavaSourceSetsClasspath().orElse(null) : null;
+        FileCollection classPath = extension.getClassPath() == null ? computeJavaSourceSetsClasspath().orElse(null) : extension.getClassPath();
 
         existingDev.forEach((name, task) -> {
             task.setClasspath(classPath);
