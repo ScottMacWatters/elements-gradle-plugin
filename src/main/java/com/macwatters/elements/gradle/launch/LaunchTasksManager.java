@@ -1,12 +1,12 @@
 package com.macwatters.elements.gradle.launch;
 
 import com.macwatters.elements.gradle.ClosureUtils;
-import org.gradle.api.Project;
-import org.gradle.api.Task;
-import org.gradle.api.UnknownTaskException;
+import com.macwatters.elements.gradle.ElementsPlugin;
+import org.gradle.api.*;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.plugins.ApplicationPlugin;
 import org.gradle.api.plugins.ApplicationPluginConvention;
+import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginConvention;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
@@ -29,27 +29,24 @@ public class LaunchTasksManager {
     private Project project;
     private Map<String, LaunchElementsTask> existingDev = new HashMap<>();
     private Map<String, CreateElementsStartScriptTask> existingDist = new HashMap<>();
+    private ElementsPlugin plugin;
+
+    public LaunchTasksManager(ElementsPlugin plugin) {
+        this.plugin = plugin;
+    }
 
     public void applyLaunchExtension(Project project) {
         this.project = project;
 
-        project.getTasks().whenObjectAdded(t -> {
-            if ("startScripts".equals(t.getName())) {
-                t.setEnabled(false);
-            }
-        });
+        try {
+            project.getTasks().getByName("startScripts").setEnabled(false);
+        } catch (UnknownTaskException ute) {
+            plugin.getTaskListener().addActionByName("startScripts", t -> t.setEnabled(false));
+        }
 
         ElementsLaunchExtension extension = new ElementsLaunchExtension(this::manageLaunchTasks);
         manageLaunchTasks(extension);
         project.getExtensions().add("elementsLaunch", extension);
-    }
-
-    private List<String> computeJvmArgs(ElementsLaunchExtension extension) {
-        List<String> elementsConfiguredArgs = extension.getJvmArgs().stream().map(ClosureUtils::s)
-                .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
-        if (elementsConfiguredArgs.isEmpty())
-            elementsConfiguredArgs = applicationPluginJvmArgs().orElse(Collections.emptyList());
-        return elementsConfiguredArgs;
     }
 
     private void manageDevTasks(ElementsLaunchExtension extension) {
@@ -63,17 +60,13 @@ public class LaunchTasksManager {
 
         tasksByName.forEach((name, launchName) -> existingDev.computeIfAbsent(name, n -> computeDev(n, launchName)));
 
-        List<String> jvmArgs = computeJvmArgs(extension);
-
-        FileCollection classPath = extension.getClassPath() == null ? computeJavaSourceSetsClasspath().orElse(null) : extension.getClassPath();
-
         existingDev.forEach((name, task) -> {
-            task.setClasspath(classPath);
+            applyClasspath(extension, task::setClasspath);
             task.setGroup("launch elements");
             task.setAdditionalArgs(extension.getDev().getLaunchArgs());
             task.setHomeDir(project.getProjectDir());
             task.setLaunchScriptBase(extension.getDev().getLaunchScriptBase());
-            task.setJvmArgs(jvmArgs);
+            applyJvmArgs(extension, task::setJvmArgs);
 
             if (tasksByName.containsKey(name)) {
                 project.getTasks().add(task);
@@ -83,39 +76,48 @@ public class LaunchTasksManager {
         });
     }
 
-    public Optional<FileCollection> computeJavaSourceSetsClasspath() {
-        try {
-            SourceSetContainer sets = project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets();
-            for (SourceSet set : sets) {
-                if ("main".equals(set.getName())) {
-                    return Optional.of(set.getRuntimeClasspath());
-                }
-            }
-        } catch (IllegalStateException | NullPointerException notFound) {
-            return Optional.empty();
+    private <T extends Plugin> void applyWhenPluginAdded(Class<T> pluginType, Runnable action) {
+        if (project.getPlugins().withType(pluginType).isEmpty()) {
+            plugin.getPluginListener().addAction(pluginType, p -> action.run());
+        } else {
+            action.run();
         }
-        return Optional.empty();
     }
 
-    public Optional<List<String>> applicationPluginJvmArgs() {
-        try {
-            List<String> output = new ArrayList<>();
-            project.getConvention().getPlugin(ApplicationPluginConvention.class).getApplicationDefaultJvmArgs().forEach(output::add);
-            return Optional.of(output);
-        } catch (IllegalStateException | NullPointerException notFound) {
-            return Optional.empty();
-        }
+    private void applyClasspath(ElementsLaunchExtension extension, Consumer<FileCollection> setter) {
+        applyWhenPluginAdded(JavaPlugin.class, () -> {
+            if (extension.getClassPath() != null) {
+                setter.accept(extension.getClassPath());
+            } else {
+                SourceSetContainer sets = project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets();
+                for (SourceSet set : sets) {
+                    if ("main".equals(set.getName())) {
+                        setter.accept(set.getRuntimeClasspath());
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    private void applyJvmArgs(ElementsLaunchExtension extension, Consumer<List<String>> setter) {
+        applyWhenPluginAdded(ApplicationPlugin.class, () -> {
+            if (extension.getJvmArgs() != null && !extension.getJvmArgs().isEmpty()) {
+                setter.accept(extension.getJvmArgs().stream().map(ClosureUtils::s)
+                        .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList()));
+            } else {
+                List<String> args = new ArrayList<>();
+                project.getConvention().getPlugin(ApplicationPluginConvention.class).getApplicationDefaultJvmArgs().forEach(args::add);
+                setter.accept(args);
+            }
+        });
     }
 
     private void processResourcesDependency(Task task) {
         try {
             project.getTasks().getByName("processResources").dependsOn(task);
         } catch (UnknownTaskException e) {
-            project.getTasks().whenObjectAdded(t -> {
-                if ("processResources".equals(t.getName())) {
-                    t.dependsOn(task);
-                }
-            });
+            plugin.getTaskListener().addActionByName("processResources", t -> t.dependsOn(task));
         }
     }
 
@@ -126,14 +128,12 @@ public class LaunchTasksManager {
 
             shouldExist.forEach(name -> existingDist.computeIfAbsent(name, this::computeDist));
 
-            List<String> jvmArgs = computeJvmArgs(extension);
-
             existingDist.forEach((name, task) -> {
                 task.setAdditionalArgs(extension.getDist().getLaunchArgs());
                 task.setLaunchScriptBase(extension.getDist().getLaunchScriptBase());
                 task.populateMainClassname();
                 task.setOutputDir(new File(project.getBuildDir(), "scripts"));
-                task.setDefaultJvmOpts(jvmArgs);
+                applyJvmArgs(extension, task::setDefaultJvmOpts);
                 task.setClasspath(project.files("$APP_HOME/*"));
                 String launchName = derriveTaskName(s(extension.getDist().getPrefix()).orElse("run"), name);
                 task.setApplicationName(launchName);

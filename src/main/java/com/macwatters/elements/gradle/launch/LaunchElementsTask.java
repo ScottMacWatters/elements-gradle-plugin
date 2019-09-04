@@ -1,9 +1,11 @@
 package com.macwatters.elements.gradle.launch;
 
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.tasks.JavaExec;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.macwatters.elements.gradle.ClosureUtils.s;
 

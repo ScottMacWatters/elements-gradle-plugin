@@ -13,7 +13,6 @@ public class ElementsLaunchExtension {
 
     private FileCollection classPath;
 
-
     private final LaunchScriptFilter dev;
     private final LaunchScriptFilter dist;
 
@@ -40,8 +39,6 @@ public class ElementsLaunchExtension {
         this.classPath = classPath;
         onUpdate();
     }
-
-
 
     public void dev(Closure devFilter) {
         ClosureUtils.closureBackedAction(devFilter).execute(dev);

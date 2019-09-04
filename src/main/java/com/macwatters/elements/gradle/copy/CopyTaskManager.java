@@ -1,5 +1,6 @@
 package com.macwatters.elements.gradle.copy;
 
+import com.macwatters.elements.gradle.ElementsPlugin;
 import groovy.lang.Closure;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
@@ -19,6 +20,11 @@ public class CopyTaskManager {
     private Copy copyConf;
     private Copy previousAlsoCopy;
     private int additionalCopyCount = 0;
+    private ElementsPlugin plugin;
+
+    public CopyTaskManager(ElementsPlugin plugin) {
+        this.plugin = plugin;
+    }
 
     public void applyCopyExtension(Project project) {
         installDistCopyConf(project);
@@ -95,11 +101,7 @@ public class CopyTaskManager {
         try {
             project.getTasks().getByName("processResources").dependsOn(task);
         } catch (UnknownTaskException e) {
-            project.getTasks().whenObjectAdded(t -> {
-                if ("processResources".equals(t.getName())) {
-                    t.dependsOn(task);
-                }
-            });
+            plugin.getTaskListener().addActionByName("processResources", t -> t.dependsOn(task));
         }
     }
 
