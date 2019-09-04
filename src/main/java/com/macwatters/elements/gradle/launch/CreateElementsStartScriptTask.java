@@ -31,7 +31,7 @@ public class CreateElementsStartScriptTask extends CreateStartScripts {
 
         builder.append(LaunchElementsTask.format("launch", "\"", "$APP_HOME", "/", launchScriptBase, "/", launchScript, "\"")).append(NL);
 
-        args.stream().map(ClosureUtils::s).filter(Optional::isPresent).forEach(arg -> builder.append(arg).append(NL));
+        args.stream().map(ClosureUtils::s).filter(Optional::isPresent).map(Optional::get).forEach(arg -> builder.append(arg).append(NL));
 
         return builder.append("end").toString();
     }

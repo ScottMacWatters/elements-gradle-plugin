@@ -30,6 +30,8 @@ public class LaunchScriptFilter {
     private Object prefix = "run";
     private List<Object> launchArgs = new ArrayList<>();
 
+    private List<Object> specificScripts = new ArrayList<>();
+
     public void includeRegex(Object... includeRegex) {
         if (this.includeRegex == DEFAULT_INCLUDE_REGEX) this.includeRegex = new ArrayList<>();
         this.includeRegex.addAll(Arrays.asList(includeRegex));
@@ -57,6 +59,11 @@ public class LaunchScriptFilter {
         onUpdate();
     }
 
+    public void specificScripts(Object... specificScripts) {
+        this.specificScripts.addAll(Arrays.asList(specificScripts));
+        onUpdate();
+    }
+
     public List<Object> getIncludeRegex() {
         return includeRegex;
     }
@@ -77,4 +84,7 @@ public class LaunchScriptFilter {
         return launchArgs;
     }
 
+    public List<Object> getSpecificScripts() {
+        return specificScripts;
+    }
 }

@@ -51,6 +51,7 @@ public class LaunchTasksManager {
 
     private void manageDevTasks(ElementsLaunchExtension extension) {
         Set<String> shouldExist = getLaunchScripts(extension.getDev());
+        addSpecificScripts(shouldExist, extension.getDev());
 
         String prefix = s(extension.getDev().getPrefix()).orElse("run");
 
@@ -74,6 +75,10 @@ public class LaunchTasksManager {
                 project.getTasks().remove(task);
             }
         });
+    }
+
+    private void addSpecificScripts(Set<String> found, LaunchScriptFilter filter) {
+        filter.getSpecificScripts().stream().map(ClosureUtils::s).filter(Optional::isPresent).map(Optional::get).forEach(found::add);
     }
 
     private <T extends Plugin> void applyWhenPluginAdded(Class<T> pluginType, Runnable action) {
@@ -125,6 +130,7 @@ public class LaunchTasksManager {
         project.getPlugins().withType(ApplicationPlugin.class, app -> {
 
             Set<String> shouldExist = getLaunchScripts(extension.getDist());
+            addSpecificScripts(shouldExist, extension.getDist());
 
             shouldExist.forEach(name -> existingDist.computeIfAbsent(name, this::computeDist));
 
@@ -163,7 +169,13 @@ public class LaunchTasksManager {
 
     private CreateElementsStartScriptTask computeDist(String name) {
         String scriptName = derriveTaskName("start", name);
-        CreateElementsStartScriptTask startScripts = project.getTasks().create(scriptName, CreateElementsStartScriptTask.class);
+        CreateElementsStartScriptTask startScripts;
+        try {
+            startScripts = (CreateElementsStartScriptTask) project.getTasks().getByName(scriptName);
+        }
+        catch(UnknownTaskException e) {
+            startScripts = project.getTasks().create(scriptName, CreateElementsStartScriptTask.class);
+        }
         startScripts.setLaunchScript(name);
         return startScripts;
     }
@@ -179,10 +191,9 @@ public class LaunchTasksManager {
 
             char ch = launchScriptName.charAt(i);
 
-            if (!Character.isAlphabetic(ch)) {
+            if (!Character.isAlphabetic(ch) && !Character.isDigit(ch)) {
                 capitalizeNext = true;
             } else {
-
                 if (capitalizeNext) {
                     builder.append(Character.toUpperCase(ch));
                     capitalizeNext = false;
@@ -212,7 +223,7 @@ public class LaunchTasksManager {
         recursiveScanSubDirs(provisionDirPath, filePath -> {
             String fullPath = filePath.toString();
             String specificPath = fileNameNoExtension(fullPath.substring(provisionDir.length()));
-            if (!fullPath.endsWith(".groovy") ||isExcluded(specificPath, exclude) ||!isIncluded(specificPath, include)) {
+            if (!fullPath.endsWith(".groovy") || isExcluded(specificPath, exclude) || !isIncluded(specificPath, include)) {
                 return;
             }
             output.add(specificPath);
