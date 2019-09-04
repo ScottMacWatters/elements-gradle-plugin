@@ -4,6 +4,7 @@ import groovy.lang.Closure;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.UnknownTaskException;
 import org.gradle.api.file.CopySpec;
 import org.gradle.api.internal.project.DefaultProject;
 import org.gradle.api.plugins.ApplicationPlugin;
@@ -91,7 +92,15 @@ public class CopyTaskManager {
     }
 
     private void processResourcesDependency(Task task) {
-        project.getTasks().getByName("processResources").dependsOn(task);
+        try {
+            project.getTasks().getByName("processResources").dependsOn(task);
+        } catch (UnknownTaskException e) {
+            project.getTasks().whenObjectAdded(t -> {
+                if ("processResources".equals(t.getName())) {
+                    t.dependsOn(task);
+                }
+            });
+        }
     }
 
 

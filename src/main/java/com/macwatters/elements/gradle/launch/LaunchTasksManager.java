@@ -3,13 +3,13 @@ package com.macwatters.elements.gradle.launch;
 import com.macwatters.elements.gradle.ClosureUtils;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.UnknownTaskException;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.plugins.ApplicationPlugin;
 import org.gradle.api.plugins.ApplicationPluginConvention;
 import org.gradle.api.plugins.JavaPluginConvention;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
-import org.gradle.api.tasks.application.CreateStartScripts;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,8 +33,11 @@ public class LaunchTasksManager {
     public void applyLaunchExtension(Project project) {
         this.project = project;
 
-        CreateStartScripts startScripts = (CreateStartScripts) project.getTasks().getByName("startScripts");
-        startScripts.setEnabled(false);
+        project.getTasks().whenObjectAdded(t -> {
+            if ("startScripts".equals(t.getName())) {
+                t.setEnabled(false);
+            }
+        });
 
         ElementsLaunchExtension extension = new ElementsLaunchExtension(this::manageLaunchTasks);
         manageLaunchTasks(extension);
@@ -104,6 +107,18 @@ public class LaunchTasksManager {
         }
     }
 
+    private void processResourcesDependency(Task task) {
+        try {
+            project.getTasks().getByName("processResources").dependsOn(task);
+        } catch (UnknownTaskException e) {
+            project.getTasks().whenObjectAdded(t -> {
+                if ("processResources".equals(t.getName())) {
+                    t.dependsOn(task);
+                }
+            });
+        }
+    }
+
     private void manageDistTasks(ElementsLaunchExtension extension) {
         project.getPlugins().withType(ApplicationPlugin.class, app -> {
 
@@ -113,7 +128,6 @@ public class LaunchTasksManager {
 
             List<String> jvmArgs = computeJvmArgs(extension);
 
-            Task processResources = project.getTasks().getByName("processResources");
             existingDist.forEach((name, task) -> {
                 task.setAdditionalArgs(extension.getDist().getLaunchArgs());
                 task.setLaunchScriptBase(extension.getDist().getLaunchScriptBase());
@@ -126,7 +140,7 @@ public class LaunchTasksManager {
 
                 if (shouldExist.contains(name)) {
                     project.getTasks().add(task);
-                    processResources.dependsOn(task);
+                    processResourcesDependency(task);
                     task.setEnabled(true);
                 } else {
                     project.getTasks().remove(task);
@@ -167,14 +181,14 @@ public class LaunchTasksManager {
 
             if (!Character.isAlphabetic(ch)) {
                 capitalizeNext = true;
-                continue;
-            }
-
-            if (capitalizeNext) {
-                builder.append(Character.toUpperCase(ch));
-                capitalizeNext = false;
             } else {
-                builder.append(ch);
+
+                if (capitalizeNext) {
+                    builder.append(Character.toUpperCase(ch));
+                    capitalizeNext = false;
+                } else {
+                    builder.append(ch);
+                }
             }
 
         }
@@ -187,7 +201,7 @@ public class LaunchTasksManager {
         String provisionDir = project.getProjectDir().getAbsolutePath() + "/" + s(extension.getLaunchScriptBase()).orElse("") + "/";
         Path provisionDirPath = Paths.get(provisionDir);
 
-        if (!Files.exists(provisionDirPath)) return Collections.emptySet();
+        if (!provisionDirPath.toFile().exists()) return Collections.emptySet();
 
         Set<String> output = new HashSet<>();
 
@@ -197,32 +211,42 @@ public class LaunchTasksManager {
 
         recursiveScanSubDirs(provisionDirPath, filePath -> {
             String fullPath = filePath.toString();
-            if (!fullPath.endsWith(".groovy")) return;
-
             String specificPath = fileNameNoExtension(fullPath.substring(provisionDir.length()));
-
-            if (exclude != null && !exclude.isEmpty()) {
-                for (String excl : exclude) {
-                    if (specificPath.matches(excl)) {
-                        return; // Skipping
-                    }
-                }
+            if (!fullPath.endsWith(".groovy") ||isExcluded(specificPath, exclude) ||!isIncluded(specificPath, include)) {
+                return;
             }
-            if (include != null && !include.isEmpty()) {
-                for (String incl : include) {
-                    if (specificPath.matches(incl)) {
-                        output.add(specificPath);
-                    }
-                }
-            } else {
-                output.add(specificPath);
-            }
+            output.add(specificPath);
         });
 
         return output;
     }
 
+    private boolean isIncluded(String specificPath, List<String> include) {
+        if (include != null && !include.isEmpty()) {
+            for (String incl : include) {
+                if (specificPath.matches(incl)) {
+                    return true;
+                }
+            }
+        } else {
+            return true;
+        }
+        return false;
+    }
 
+    private boolean isExcluded(String specificPath, List<String> exclude) {
+        if (exclude != null && !exclude.isEmpty()) {
+            for (String excl : exclude) {
+                if (specificPath.matches(excl)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
+    @SuppressWarnings("squid:S1168")
     private List<String> convertClosureList(List<Object> closures) {
         if (closures == null) return null;
         return closures.stream().map(ClosureUtils::s)
@@ -231,6 +255,7 @@ public class LaunchTasksManager {
                 .collect(Collectors.toList());
     }
 
+    @SuppressWarnings("squid:S00112")
     private void recursiveScanSubDirs(Path pathToScan, Consumer<Path> onFile) {
 
         try (Stream<Path> contents = Files.list(pathToScan)) {
