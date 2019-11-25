@@ -58,7 +58,7 @@ elementsLaunch {
     }
     
     // This configures what provisions are turned into start scripts 
-    // and distributed allong witht he application bundle
+    // and distributed along with the application bundle
     dist {
         // Same as the "dev.launchScriptBase" property above
         // Note that with this configuration, it will only look in the prod directory
